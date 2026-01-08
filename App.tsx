@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Sparkles, 
   Layers, 
@@ -9,8 +9,7 @@ import {
   History, 
   ArrowRight,
   Download,
-  Zap,
-  Cpu
+  Zap
 } from 'lucide-react';
 import { PocketStore, Artifact } from './types';
 import { runDesignSolver } from './services/pocketFlow';
@@ -18,6 +17,11 @@ import ArtifactCard from './components/ArtifactCard';
 import SideDrawer from './components/SideDrawer';
 import AppMapViewer from './components/AppMapViewer';
 import DottedBackground from './components/DottedBackground';
+
+/**
+ * App Orchestrator Component
+ * Manages the global state and UI routing for the Design Solver.
+ */
 
 const App: React.FC = () => {
   const [store, setStore] = useState<PocketStore>({
@@ -35,13 +39,13 @@ const App: React.FC = () => {
     e.preventDefault();
     if (!inputValue.trim()) return;
 
-    setStore(prev => ({
-      ...prev,
+    // Reset store and initiate Service Layer
+    setStore({
       idea_raw: inputValue,
       status: 'analyzing',
       artifacts: [],
       currentStep: 'Initializing Experts...'
-    }));
+    });
 
     try {
       await runDesignSolver(inputValue, (update) => {
@@ -49,7 +53,7 @@ const App: React.FC = () => {
       });
     } catch (err) {
       console.error(err);
-      setStore(prev => ({ ...prev, status: 'error', currentStep: 'Expert system failed.' }));
+      setStore(prev => ({ ...prev, status: 'error', currentStep: 'Expert system failure.' }));
     }
   };
 
@@ -69,6 +73,7 @@ const App: React.FC = () => {
     <div className="h-screen flex bg-[#1C1B1F] text-[#E6E1E5] overflow-hidden">
       <DottedBackground />
 
+      {/* Navigation Rail */}
       <nav className="w-20 md:w-24 border-r border-white/5 flex flex-col items-center py-8 gap-8 z-50 bg-[#1C1B1F]">
         <div className="w-12 h-12 bg-[#D0BCFF] rounded-2xl flex items-center justify-center text-[#381E72] shadow-lg animate-in zoom-in duration-500">
           <Layers className="w-6 h-6" />
@@ -109,15 +114,16 @@ const App: React.FC = () => {
       </nav>
 
       <div className="flex-1 flex flex-col relative overflow-hidden">
+        {/* App Bar */}
         <header className="h-20 px-10 flex justify-between items-center border-b border-white/5 bg-[#1C1B1F]/80 backdrop-blur-md z-40">
           <div className="flex items-center gap-6">
             <h2 className="text-xl font-bold tracking-tight text-[#E6E1E5] max-w-md truncate">
-              {store.status === 'idle' ? 'Project Solver' : store.idea_raw}
+              {store.status === 'idle' ? 'Design Solver' : store.idea_raw}
             </h2>
             {store.status !== 'idle' && (
               <span className="px-4 py-1.5 bg-[#2B2930] text-[#D0BCFF] text-[10px] font-black uppercase tracking-[0.2em] rounded-full border border-[#D0BCFF]/10 flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${isProcessing ? 'bg-yellow-400 animate-pulse shadow-[0_0_10px_rgba(250,204,21,0.5)]' : 'bg-green-400 shadow-[0_0_10px_rgba(74,222,128,0.5)]'}`}></div>
-                {store.status.toUpperCase()}
+                <div className={`w-2 h-2 rounded-full ${isProcessing ? 'bg-yellow-400 animate-pulse' : 'bg-green-400 shadow-[0_0_10px_rgba(74,222,128,0.5)]'}`}></div>
+                {store.status}
               </span>
             )}
           </div>
@@ -128,7 +134,7 @@ const App: React.FC = () => {
                 onClick={handleExport}
                 className="m3-button h-11 px-6 bg-[#D0BCFF] text-[#381E72] flex items-center gap-2 hover:scale-[1.02] transition-all font-black text-xs uppercase tracking-widest shadow-lg"
               >
-                <Download className="w-4 h-4" /> Export All
+                <Download className="w-4 h-4" /> Export Project
               </button>
             )}
             {store.status !== 'idle' && (
@@ -142,18 +148,19 @@ const App: React.FC = () => {
           </div>
         </header>
 
+        {/* Content Viewport */}
         <main className="flex-1 overflow-y-auto p-10 custom-scrollbar relative">
           {store.status === 'idle' ? (
             <div className="max-w-4xl mx-auto mt-24 text-center space-y-16 animate-in fade-in slide-in-from-bottom-8 duration-1000">
               <div className="space-y-8">
                 <div className="inline-flex items-center gap-3 px-4 py-2 bg-[#4F378B]/20 border border-[#D0BCFF]/20 rounded-full text-[#D0BCFF] text-[10px] font-black uppercase tracking-[0.3em] animate-pulse">
-                  <Zap className="w-4 h-4" /> Multi-Agent Virtual Team
+                  <Zap className="w-4 h-4" /> Autonomous Expert Team
                 </div>
                 <h1 className="text-7xl md:text-9xl font-black tracking-tighter text-white leading-[0.8] animate-in slide-in-from-top-4 duration-700">
-                  Concept <span className="text-[#D0BCFF]">Ready.</span>
+                  Concept <span className="text-[#D0BCFF]">Live.</span>
                 </h1>
                 <p className="text-xl text-[#CAC4D0] max-w-2xl mx-auto leading-relaxed font-light">
-                  Input an intention. Receive a full architectural map, expert strategies, and high-fidelity interactive prototypes.
+                  Input an intention. Receive architectural maps, specialized strategies, and three high-fidelity visual prototypes instantly.
                 </p>
               </div>
 
