@@ -8,7 +8,7 @@ export enum ExpertRole {
   PROTOTYPER = 'Synthesis Expert'
 }
 
-export type ArtifactType = 'text' | 'ui-layout' | 'data-schema' | 'ux-flow' | 'prototype';
+export type ArtifactType = 'text' | 'ui-layout' | 'data-schema' | 'ux-flow' | 'prototype' | 'component-map';
 
 export interface Artifact {
   id: string;
@@ -30,6 +30,14 @@ export interface PocketStore {
     modules: { name: string; description: string; features: string[] }[];
   };
   artifacts: Artifact[];
+  consistency?: {
+    issues: string[];
+    ok: boolean;
+  };
+  uiflash_project?: {
+    sections: { id: string; title: string; cards: string[] }[];
+    cards: { id: string; title: string; type: string; payload: any }[];
+  };
   status: 'idle' | 'analyzing' | 'designing' | 'ready' | 'error';
   currentStep: string;
 }

@@ -1,45 +1,44 @@
-# Project Design Solver - Architecture
 
-This application follows a **Service-Oriented Architecture** with a clear separation between the **UI Layer** (React + Tailwind) and the **Service Layer** (Generative AI Engine).
+# Project Design Solver - Architecture (Node/Flow Edition)
 
-## 📂 Directory Structure
+This application uses a strictly decoupled **Node-based Service Layer** (PocketFlow logic) to transform fuzzy product ideas into high-fidelity design artifacts.
+
+## 📂 Project Structure
 
 ```text
 /
-├── App.tsx             # Main Orchestrator (State Management & UI Layout)
-├── types.ts            # Shared Domain Model (Expert Roles, Artifact Types)
+├── App.tsx             # State Management & View Orchestration
+├── types.ts            # Domain Model (Expert Roles, Zod-backed Store)
 ├── services/
-│   └── pocketFlow.ts   # The "Engine" (Service Layer) - Manages Multi-Agent flow
-├── components/         # Atomic UI Components (Material 3 Philosophy)
-│   ├── ArtifactCard.tsx    # Neural Projection Visualizer
-│   ├── SideDrawer.tsx      # Expert Specification Detail View
-│   ├── AppMapViewer.tsx    # Technical Roadmap Visualizer
-│   └── DottedBackground.tsx # Immersive Ambient UI
-└── ARCHITECTURE.md     # This file
+│   └── pocketFlow.ts   # GENAI ENGINE: Node-based flow with Zod validation
+├── components/         # Material 3 View Layer
+│   ├── ArtifactCard.tsx    # Card-based artifact visualizer
+│   ├── SideDrawer.tsx      # Deep-dive interactive projection viewer
+│   ├── AppMapViewer.tsx    # Architecture map visualizer
+│   └── DottedBackground.tsx # Immersive environment
+└── ARCHITECTURE.md     # Engineering specs
 ```
 
-## 🧠 Service Layer: The Design Solver
+## 🧠 Service Logic: Node Pipeline
 
-The core logic resides in `services/pocketFlow.ts`. It orchestrates a multi-stage **Neural Projection** process:
+The `runDesignSolver` service executes a linear pipeline of specialized **Nodes**:
 
-1.  **Intent Agent**: Decrypts the user's "vague" idea into structured goals and constraints.
-2.  **Product Cartographer**: Mapped out the application modules and functional priority.
-3.  **Expert Team (Parallel)**:
-    *   **UX Expert**: Defines critical user journeys and flows.
-    *   **UI Expert**: Architecturally projects layout grids and zones.
-    *   **Data Architect**: Models entities and relationships.
-2.  **Synthesis Agent (Prototypes)**: Generates 3 high-fidelity, interactive HTML/Tailwind CSS visual proposals.
+1.  **IntentNode**: Decrypts user input using **Gemini 3 Flash** with **Zod validation**.
+2.  **CartographyNode**: Maps the application into priority modules.
+3.  **ExpertTeamNode**: Runs 4 expert agents (UX, UI, Data, Component) in **parallel** to produce structured strategies.
+4.  **SynthesisNode**: Generates 3 full-page interactive **HTML/Tailwind prototypes** as visual proposals.
+5.  **ProjectionNode**: Performs a final consistency check and assembles a unified **UIFlash Project** JSON.
 
-## 🎨 UI Layer: Material 3 Immersive
+## 🛡️ Stability & Safety
 
-The UI uses **Material Design 3** principles adapted for a high-tech "Neural" aesthetic.
--   **Projection Deck**: A grid of cards where each "Expert" delivers their specialized artifact.
--   **Side Drawer**: Provides deep-dive technical logs and live interactive prototype shells.
--   **App Map**: A high-level architectural view for technical grounding.
+-   **Schema First**: Every AI response is strictly validated via **Zod** schemas.
+-   **Retry Logic**: Automatic exponential backoff for GenAI requests ensures robustness against rate limits or temporary failures.
+-   **Safe JSON**: Custom regex-based JSON extraction handles model hallucinations (text wrapping).
+-   **IP Safeguard**: Prompts explicitly prohibit artist or brand names, focusing on physical materiality and technical logic.
 
 ## 🛠 Tech Stack
 
--   **Engine**: Gemini 3 Flash Preview via `@google/genai`.
--   **Frontend**: React + Tailwind CSS.
--   **Icons**: Lucide-React.
--   **Animations**: Tailwind + Framer-inspired CSS transitions.
+-   **AI Core**: Google Gemini 3 Flash Preview (`@google/genai`).
+-   **Logic**: TypeScript + Zod.
+-   **UI**: React 19 + Lucide Icons + Tailwind CSS.
+-   **Visuals**: Material Design 3 methodology.

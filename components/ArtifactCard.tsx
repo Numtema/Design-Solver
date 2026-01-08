@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Artifact, ExpertRole } from '../types';
-import { Compass, Code, Layout, Database, PencilRuler, ArrowUpRight, Zap } from 'lucide-react';
+import { Compass, Code, Layout, Database, PencilRuler, ArrowUpRight, Zap, Component } from 'lucide-react';
 
 interface ArtifactCardProps {
   artifact: Artifact;
@@ -14,9 +14,10 @@ const getRoleIcon = (role: ExpertRole) => {
     case ExpertRole.ARCHITECT: return <Compass className="w-5 h-5" />;
     case ExpertRole.UX: return <PencilRuler className="w-5 h-5" />;
     case ExpertRole.UI: return <Layout className="w-5 h-5" />;
-    case ExpertRole.COMPONENT: return <Code className="w-5 h-5" />;
+    case ExpertRole.COMPONENT: return <Component className="w-5 h-5" />;
     case ExpertRole.DATA: return <Database className="w-5 h-5" />;
     case ExpertRole.PROTOTYPER: return <Zap className="w-5 h-5" />;
+    default: return <Code className="w-5 h-5" />;
   }
 };
 
@@ -52,9 +53,9 @@ const ArtifactCard: React.FC<ArtifactCardProps> = ({ artifact, delay, onClick })
                 className="w-[1000px] h-[750px] scale-[0.3] origin-top-left absolute"
                 sandbox="allow-scripts"
               />
-              <div className="absolute inset-0 bg-transparent z-10" /> {/* Click overlay */}
+              <div className="absolute inset-0 bg-transparent z-10" />
               <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-[#1C1B1F] to-transparent">
-                 <div className="px-3 py-1 bg-[#D0BCFF] text-[#381E72] rounded-full text-[10px] font-black uppercase inline-block">Interactive Shell</div>
+                 <div className="px-3 py-1 bg-[#D0BCFF] text-[#381E72] rounded-full text-[10px] font-black uppercase inline-block">Interactive Prototype</div>
               </div>
             </div>
           ) : (
@@ -77,12 +78,23 @@ const ArtifactCard: React.FC<ArtifactCardProps> = ({ artifact, delay, onClick })
                     {[1, 2, 3].map(i => (
                       <React.Fragment key={i}>
                         <div className="w-32 py-2 px-4 bg-[#D0BCFF]/10 border border-[#D0BCFF]/30 text-[#D0BCFF] rounded-xl text-[9px] font-black tracking-widest text-center uppercase">
-                          State {i}
+                          Journey State {i}
                         </div>
                         {i < 3 && <div className="h-3 w-px bg-[#D0BCFF]/20" />}
                       </React.Fragment>
                     ))}
                  </div>
+              )}
+
+              {artifact.type === 'component-map' && (
+                <div className="h-full space-y-3 opacity-60 group-hover:opacity-100">
+                  <div className="flex flex-wrap gap-2">
+                    {['Button', 'Card', 'Input', 'Modal'].map(c => (
+                      <span key={c} className="px-2 py-1 bg-[#4F378B]/40 rounded-lg text-[10px] text-[#D0BCFF]">{c}</span>
+                    ))}
+                  </div>
+                  <div className="p-3 bg-[#4F378B]/10 rounded-xl border border-white/5 text-[9px] text-zinc-500">Design System Ready</div>
+                </div>
               )}
 
               {artifact.type === 'data-schema' && (
@@ -115,7 +127,7 @@ const ArtifactCard: React.FC<ArtifactCardProps> = ({ artifact, delay, onClick })
             <div className="w-6 h-6 rounded-full border-2 border-[#2B2930] bg-[#322F37] flex items-center justify-center text-[8px] font-bold">M2</div>
           </div>
           <button className="text-[10px] font-black text-[#D0BCFF] uppercase tracking-[0.2em] group-hover:tracking-[0.3em] transition-all">
-            {isPrototype ? 'Full Preview' : 'Examine Specs'}
+            {isPrototype ? 'Open Sandbox' : 'View Spec'}
           </button>
         </div>
       </div>
