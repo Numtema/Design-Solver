@@ -6,15 +6,10 @@ import {
   Map as MapIcon, 
   LayoutGrid, 
   Settings, 
-  History, 
   ArrowRight,
   Download,
   Zap,
   Target,
-  BarChart3,
-  Briefcase,
-  Cpu,
-  ShieldCheck,
   Search,
   MousePointer2
 } from 'lucide-react';
@@ -64,6 +59,16 @@ const App: React.FC = () => {
     }
   };
 
+  const handleExport = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(store, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href",     dataStr);
+    downloadAnchorNode.setAttribute("download", `project_spec_${Date.now()}.json`);
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+  };
+
   const isProcessing = store.status === 'analyzing' || store.status === 'designing';
 
   return (
@@ -72,7 +77,7 @@ const App: React.FC = () => {
 
       {/* Navigation Rail */}
       <nav className="w-20 md:w-24 border-r border-white/5 flex flex-col items-center py-8 gap-8 z-50 bg-[#09090b]">
-        <div className="w-12 h-12 bg-[#D0BCFF] rounded-2xl flex items-center justify-center text-[#381E72] shadow-xl hover:scale-110 transition-transform">
+        <div className="w-12 h-12 bg-[#D0BCFF] rounded-2xl flex items-center justify-center text-[#381E72] shadow-xl hover:scale-110 transition-transform cursor-pointer">
           <Layers className="w-6 h-6" />
         </div>
         
@@ -121,6 +126,7 @@ const App: React.FC = () => {
           <div className="flex items-center gap-4">
             {store.status === 'ready' && (
               <button 
+                onClick={handleExport}
                 className="m3-button h-11 px-6 bg-[#D0BCFF] text-[#381E72] flex items-center gap-2 hover:scale-[1.02] transition-all font-black text-xs uppercase tracking-widest shadow-lg"
               >
                 <Download className="w-4 h-4" /> Export Spec

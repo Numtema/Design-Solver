@@ -1,5 +1,5 @@
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { z } from "zod";
 import { PocketStore, ExpertRole, Artifact, ArtifactType, ProjectMode, ProjectDepth } from "../types";
 
@@ -8,54 +8,65 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 // --- Universal Schemas ---
 
 export const IntentSchema = z.object({
-  goal: z.string(),
-  target: z.string(),
+  goal: z.string().default("Unknown Goal"),
+  target: z.string().default("General Audience"),
   constraints: z.array(z.string()).default([]),
 });
 
 export const AppMapSchema = z.object({
   modules: z.array(z.object({
-    name: z.string(),
-    description: z.string(),
-    features: z.array(z.string()),
-  })),
+    name: z.string().default("New Module"),
+    description: z.string().default("No description provided."),
+    features: z.array(z.string()).default([]),
+  })).default([]),
 });
 
 const BaseExpertSchema = z.object({
-  summary: z.string(),
+  summary: z.string().default("No summary available."),
   confidence: z.number().min(0).max(1).default(0.9),
 });
 
 export const UXSchema = BaseExpertSchema.extend({
-  steps: z.array(z.object({ label: z.string(), desc: z.string() })),
+  steps: z.array(z.object({ label: z.string(), desc: z.string() })).default([]),
 });
 
 export const UISchema = BaseExpertSchema.extend({
-  layout: z.array(z.object({ area: z.string(), items: z.array(z.string()) })),
+  layout: z.array(z.object({ area: z.string(), items: z.array(z.string()) })).default([]),
 });
 
 export const DataSchema = BaseExpertSchema.extend({
-  entities: z.array(z.object({ name: z.string(), fields: z.array(z.string()) })),
+  entities: z.array(z.object({ name: z.string(), fields: z.array(z.string()) })).default([]),
 });
 
 export const ComponentSchema = BaseExpertSchema.extend({
-  components: z.array(z.object({ name: z.string(), usage: z.string() })),
+  components: z.array(z.object({ name: z.string(), usage: z.string() })).default([]),
 });
 
 export const PersonaSchema = BaseExpertSchema.extend({
-  personas: z.array(z.object({ name: z.string(), role: z.string(), goals: z.array(z.string()), frustrations: z.array(z.string()) })),
+  personas: z.array(z.object({ name: z.string(), role: z.string(), goals: z.array(z.string()), frustrations: z.array(z.string()) })).default([]),
 });
 
 export const RiskSchema = BaseExpertSchema.extend({
-  risks: z.array(z.object({ area: z.string(), severity: z.string(), mitigation: z.string() })),
+  risks: z.array(z.object({ area: z.string(), severity: z.string(), mitigation: z.string() })).default([]),
 });
 
 export const TechStackSchema = BaseExpertSchema.extend({
-  stack: z.object({ frontend: z.string(), backend: z.string(), database: z.string(), infra: z.string() }),
+  stack: z.object({ 
+    frontend: z.string().default("React"), 
+    backend: z.string().default("Node.js"), 
+    database: z.string().default("PostgreSQL"), 
+    infra: z.string().default("Cloud") 
+    // Fix: provide full default object to match the inferred type of the Zod object schema
+  }).default({ 
+    frontend: "React", 
+    backend: "Node.js", 
+    database: "PostgreSQL", 
+    infra: "Cloud" 
+  }),
 });
 
 export const MonetizationSchema = BaseExpertSchema.extend({
-  tiers: z.array(z.object({ name: z.string(), price: z.string(), features: z.array(z.string()) })),
+  tiers: z.array(z.object({ name: z.string(), price: z.string(), features: z.array(z.string()) })).default([]),
 });
 
 // --- Activation Matrix ---
@@ -64,14 +75,14 @@ export function resolveAgents(mode: ProjectMode, depth: ProjectDepth): ExpertRol
   const roles: ExpertRole[] = [ExpertRole.INTENT, ExpertRole.CARTOGRAPHER];
   
   // FOUNDATION
-  roles.push(ExpertRole.UX, ExpertRole.UI);
+  roles.push(ExpertRole.UX, ExpertRole.UI, ExpertRole.PERSONA);
   
   if (depth !== 'quick') {
     roles.push(ExpertRole.COMPONENT, ExpertRole.DATA, ExpertRole.CONSISTENCY);
   }
 
   if (depth === 'deep') {
-    roles.push(ExpertRole.PERSONA, ExpertRole.SIMPLIFIER);
+    roles.push(ExpertRole.SIMPLIFIER);
     if (mode === 'mvp') roles.push(ExpertRole.TECH_STACK, ExpertRole.PRICING);
     if (mode === 'scale') roles.push(ExpertRole.RISK, ExpertRole.ESTIMATION, ExpertRole.GTM);
   }
@@ -90,7 +101,16 @@ function safeJsonParse(text: string): unknown {
 function parseWithSchema<T>(schema: z.ZodSchema<T>, rawText: string): T {
   const raw = safeJsonParse(rawText);
   const res = schema.safeParse(raw);
-  if (!res.success) return schema.parse({ summary: "Generated with minor validation issues." }) as T;
+  if (!res.success) {
+    // Fix: ZodError does not have an 'errors' property; use 'issues' instead.
+    console.error("Zod Validation Failed:", res.error.issues);
+    // Attempt to return a valid object by parsing an empty one through the schema (triggering defaults)
+    try {
+      return schema.parse({});
+    } catch {
+      return raw as T;
+    }
+  }
   return res.data;
 }
 
@@ -110,69 +130,96 @@ function makeId(prefix: string) {
 
 /**
  * 1. Intent Analyst Node
- * Decrypts the raw user idea.
  */
 async function intentNode(shared: PocketStore, emit: (u: Partial<PocketStore>) => void) {
   emit({ currentStep: "Decrypting Intent..." });
   const res = await withRetry(() => ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `Analyze the following product idea: "${shared.idea_raw}". 
-    Return a JSON object: { "goal": "Primary objective", "target": "Audience", "constraints": ["Constraint 1"] }
-    Strictly JSON. No markdown.`,
-    config: { responseMimeType: "application/json" }
+    contents: `Analyze: "${shared.idea_raw}". Identify the primary goal, target audience, and key constraints.`,
+    config: { 
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          goal: { type: Type.STRING },
+          target: { type: Type.STRING },
+          constraints: { type: Type.ARRAY, items: { type: Type.STRING } }
+        },
+        required: ["goal", "target"]
+      }
+    }
   }));
   const intent = parseWithSchema(IntentSchema, res.text || "{}");
   emit({ intent });
-  return "ok";
+  return intent;
 }
 
 /**
  * 2. Product Cartographer Node
- * Structures the app modules.
  */
 async function cartographyNode(shared: PocketStore, emit: (u: Partial<PocketStore>) => void) {
   emit({ currentStep: "Mapping Architecture...", status: "designing" });
   const res = await withRetry(() => ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `Based on Goal: "${shared.intent?.goal}", Target: "${shared.intent?.target}". 
-    Map 4 essential modules for this application.
-    Return JSON: { "modules": [{ "name": "Module Name", "description": "Short desc", "features": ["Feature A"] }] }`,
-    config: { responseMimeType: "application/json" }
+    contents: `Goal: "${shared.intent?.goal}". Map 4 core modules for this application.`,
+    config: { 
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          modules: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                name: { type: Type.STRING },
+                description: { type: Type.STRING },
+                features: { type: Type.ARRAY, items: { type: Type.STRING } }
+              },
+              required: ["name", "description", "features"]
+            }
+          }
+        },
+        required: ["modules"]
+      }
+    }
   }));
   const app_map = parseWithSchema(AppMapSchema, res.text || "{}");
   emit({ app_map });
-  return "ok";
+  return app_map;
 }
 
 /**
- * 3. Specialized Expert Node (Universal)
- * Can run any role from the taxonomy.
+ * 3. Expert Node
  */
 async function expertNode(role: ExpertRole, shared: PocketStore, emit: (u: Partial<PocketStore>) => void) {
   let schema: z.ZodSchema<any> = BaseExpertSchema;
   let type: ArtifactType = 'text';
-  let promptText = "";
+  let task = "";
 
   switch (role) {
-    case ExpertRole.UX: schema = UXSchema; type = 'ux-flow'; promptText = "Define a 4-step user journey. JSON: { summary, steps: [{label, desc}] }"; break;
-    case ExpertRole.UI: schema = UISchema; type = 'ui-layout'; promptText = "Propose dashboard layout zones. JSON: { summary, layout: [{area, items}] }"; break;
-    case ExpertRole.DATA: schema = DataSchema; type = 'data-schema'; promptText = "Define core DB entities. JSON: { summary, entities: [{name, fields}] }"; break;
-    case ExpertRole.COMPONENT: schema = ComponentSchema; type = 'component-map'; promptText = "List key reusable UI components. JSON: { summary, components: [{name, usage}] }"; break;
-    case ExpertRole.PERSONA: schema = PersonaSchema; type = 'persona-profile'; promptText = "Define 2 core user personas. JSON: { summary, personas: [{name, role, goals, frustrations}] }"; break;
-    case ExpertRole.RISK: schema = RiskSchema; type = 'risk-analysis'; promptText = "Identify technical/product risks. JSON: { summary, risks: [{area, severity, mitigation}] }"; break;
-    case ExpertRole.TECH_STACK: schema = TechStackSchema; type = 'tech-roadmap'; promptText = "Recommend a modern tech stack. JSON: { summary, stack: {frontend, backend, database, infra} }"; break;
-    case ExpertRole.PRICING: schema = MonetizationSchema; type = 'monetization-plan'; promptText = "Suggest pricing tiers. JSON: { summary, tiers: [{name, price, features}] }"; break;
-    case ExpertRole.SIMPLIFIER: schema = BaseExpertSchema; type = 'text'; promptText = "Suggest ways to simplify this MVP for faster launch."; break;
-    case ExpertRole.CONSISTENCY: schema = BaseExpertSchema; type = 'consistency-report'; promptText = "Review the coherence between modules, UX, and UI. Identify gaps."; break;
-    default: schema = BaseExpertSchema; type = 'text'; promptText = "Provide your expert perspective on this product."; break;
+    case ExpertRole.UX: schema = UXSchema; type = 'ux-flow'; task = "Define a 4-step user journey."; break;
+    case ExpertRole.UI: schema = UISchema; type = 'ui-layout'; task = "Propose dashboard layout zones."; break;
+    case ExpertRole.DATA: schema = DataSchema; type = 'data-schema'; task = "Define core DB entities."; break;
+    case ExpertRole.COMPONENT: schema = ComponentSchema; type = 'component-map'; task = "List key reusable UI components."; break;
+    case ExpertRole.PERSONA: schema = PersonaSchema; type = 'persona-profile'; task = "Define 2 user personas."; break;
+    case ExpertRole.RISK: schema = RiskSchema; type = 'risk-analysis'; task = "Identify technical/product risks."; break;
+    case ExpertRole.TECH_STACK: schema = TechStackSchema; type = 'tech-roadmap'; task = "Recommend tech stack."; break;
+    case ExpertRole.PRICING: schema = MonetizationSchema; type = 'monetization-plan'; task = "Suggest pricing tiers."; break;
+    case ExpertRole.SIMPLIFIER: type = 'text'; task = "Suggest MVP simplification."; break;
+    case ExpertRole.CONSISTENCY: type = 'consistency-report'; task = "Verify coherence across all generated artifacts."; break;
+    default: task = "Provide expert analysis.";
   }
+
+  const contextText = `
+    Intent: ${JSON.stringify(shared.intent)}
+    App Map: ${JSON.stringify(shared.app_map)}
+    Previous Findings: ${shared.artifacts.map(a => `${a.role}: ${a.summary}`).join(' | ')}
+  `;
 
   const res = await withRetry(() => ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `Role: ${role}. 
-    Context: Intent=${JSON.stringify(shared.intent)}, Map=${JSON.stringify(shared.app_map)}. 
-    Task: ${promptText}. 
-    Output strictly valid JSON.`,
+    contents: `Role: ${role}. Context: ${contextText}. Task: ${task}. Output JSON including a 'summary' string.`,
     config: { responseMimeType: "application/json" }
   }));
 
@@ -188,22 +235,19 @@ async function expertNode(role: ExpertRole, shared: PocketStore, emit: (u: Parti
     confidence: (json as any).confidence || 0.95
   };
 
-  emit({ artifacts: [...shared.artifacts, artifact] });
+  const updatedArtifacts = [...shared.artifacts, artifact];
+  emit({ artifacts: updatedArtifacts });
   return artifact;
 }
 
 /**
  * 4. Synthesis Node
- * Generates the master visual prototype.
  */
 async function synthesisNode(shared: PocketStore, emit: (u: Partial<PocketStore>) => void) {
   emit({ currentStep: "Synthesizing Interactive Projection..." });
   const res = await withRetry(() => ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `You are the Synthesis Expert. 
-    Construct a high-fidelity interactive HTML/Tailwind prototype for: "${shared.idea_raw}".
-    Use the following expert guidance: ${JSON.stringify(shared.artifacts.slice(0, 5))}.
-    Return ONLY RAW HTML. No markdown code blocks. Use Lucide icons and Tailwind via CDN.`,
+    contents: `Synthesis Expert. Generate interactive HTML/Tailwind for: "${shared.idea_raw}". Use context: ${JSON.stringify(shared.artifacts)}. Raw HTML only. No markdown.`,
   }));
 
   let html = res.text || "";
@@ -213,14 +257,14 @@ async function synthesisNode(shared: PocketStore, emit: (u: Partial<PocketStore>
     id: 'synthesis_projection',
     role: ExpertRole.PROTOTYPER,
     title: 'Visual Master Projection',
-    summary: 'A fully functional visual prototype derived from all expert artifacts.',
+    summary: 'Master functional prototype based on expert strategies.',
     content: html,
     type: 'prototype',
     confidence: 1.0
   };
 
   emit({ artifacts: [...shared.artifacts, proto] });
-  return "ok";
+  return proto;
 }
 
 // --- Runner ---
@@ -250,18 +294,25 @@ export async function runDesignSolver(
     await cartographyNode(shared, emit);
     
     const activeRoles = resolveAgents(mode, depth);
-    const expertRoles = activeRoles.filter(r => r !== ExpertRole.INTENT && r !== ExpertRole.CARTOGRAPHER && r !== ExpertRole.PROTOTYPER);
+    const foundationRoles = activeRoles.filter(r => [ExpertRole.PERSONA, ExpertRole.UX, ExpertRole.UI].includes(r));
+    const enrichmentRoles = activeRoles.filter(r => !foundationRoles.includes(r) && ![ExpertRole.INTENT, ExpertRole.CARTOGRAPHER, ExpertRole.PROTOTYPER].includes(r));
 
-    // Parallel execution for expert team
-    emit({ currentStep: `Engaging ${expertRoles.length} Experts...` });
-    await Promise.all(expertRoles.map(role => expertNode(role, shared, emit)));
+    // Phase 1: Foundation (Parallel)
+    emit({ currentStep: "Building Foundations..." });
+    await Promise.all(foundationRoles.map(role => expertNode(role, shared, emit)));
 
-    // Final synthesis
+    // Phase 2: Enrichment (Parallel, but now with Foundation context)
+    if (enrichmentRoles.length > 0) {
+      emit({ currentStep: "Deepening Strategic Logic..." });
+      await Promise.all(enrichmentRoles.map(role => expertNode(role, shared, emit)));
+    }
+
+    // Phase 3: Final Synthesis
     await synthesisNode(shared, emit);
 
-    emit({ status: "ready", currentStep: "Design Solver Finished" });
+    emit({ status: "ready", currentStep: "Project Solver Complete" });
   } catch (err) {
     console.error(err);
-    emit({ status: "error", currentStep: "Neural Failure" });
+    emit({ status: "error", currentStep: "Expert link failed." });
   }
 }
